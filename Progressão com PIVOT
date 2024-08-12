@@ -1,0 +1,51 @@
+WITH CTE_Performance AS (
+    SELECT   
+        per.[chave_externa],
+		hm.[nome],
+      --  per.[segmento],
+        YEAR(per.[data]) AS ano,
+        MONTH(per.[data]) AS mes,
+        CASE
+            WHEN SUM(resultado) < 0 THEN 'G4'
+            WHEN SUM(resultado) / SUM(meta) < 0.40 THEN 'G4'
+            WHEN SUM(resultado) / SUM(meta) < 0.55 THEN 'G3'
+            WHEN SUM(resultado) / SUM(meta) < 0.75 THEN 'G2'
+            ELSE 'G1'
+        END AS Grupo
+    FROM 
+        [VerticalRobbyson].[rby].[performance] as per WITH (NOLOCK) left join [VerticalRobbyson].[dbo].[dim_atributo] as atr with (nolock) on (atr.atributo = per.segmento)
+		join [VerticalRobbyson].[rlt].[hmn] as hm with (nolock) on (hm.matricula = per.chave_externa and per.data = hm.data)
+    WHERE 
+       per.[data] BETWEEN '2024-06-01' AND '2024-08-31'
+        AND id_indicador IN ('34')
+        AND cidade in ('BH')
+    GROUP BY 
+        per.chave_externa, 
+		hm.nome,
+        YEAR(per.[data]), 
+        MONTH(per.[data]), 
+        [id_indicador]
+       -- per.[segmento]
+)
+ 
+SELECT 
+    [chave_externa],
+	[nome],
+	(select top (1) atributo
+	 from [VerticalRobbyson].[rlt].[hmn] as hm
+	 where hm.matricula = chave_externa
+	 order by data desc)
+    [ano],
+    ISNULL([6], '-') AS [Junho],
+    ISNULL([7], '-') AS [Julho],
+    ISNULL([8], '-') AS [Agosto]
+FROM 
+    CTE_Performance
+PIVOT (
+    MAX(Grupo)
+    FOR mes IN ([6], [7], [8])
+) AS PVT
+ 
+ORDER BY 
+    [chave_externa], 
+    [ano];
