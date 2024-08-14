@@ -1,0 +1,45 @@
+WITH Combinacoes AS (
+    SELECT 
+        main.Atributo,
+		atr.site,
+		atr.cidade,
+        STUFF((
+            SELECT ',' + CAST(Id_Indicador AS VARCHAR)
+            FROM [VERTICALROBBYSON].[RBY].[IMPORT_MATRIZ] AS Sub
+            WHERE Sub.Atributo = Main.Atributo
+                AND Sub.data_inicio BETWEEN '2024-08-01' AND '2024-08-31'
+                AND Sub.Atributo LIKE '%nubank%'
+                AND Sub.Ganho_G1 > 0
+				and ativo not in (0,6,8)
+            FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Indicadores,
+		      
+			  STUFF((
+            SELECT ',' + CAST(Ganho_G1 AS VARCHAR)
+            FROM [VERTICALROBBYSON].[RBY].[IMPORT_MATRIZ] AS Sub
+            WHERE Sub.Atributo = Main.Atributo
+                AND Sub.data_inicio BETWEEN '2024-08-01' AND '2024-08-31'
+                AND Sub.Atributo LIKE '%nubank%'
+                AND Sub.Ganho_G1 > 0
+				and ativo not in (0,6,8)
+            FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS ganho
+
+    FROM 
+        [VERTICALROBBYSON].[RBY].[IMPORT_MATRIZ] AS Main left join [VerticalRobbyson].[dbo].[dim_atributo] as atr with (nolock) on (main.atributo = atr.atributo)
+    WHERE 
+        data_inicio BETWEEN '2024-08-01' AND '2024-08-31'
+        AND main.Atributo LIKE '%nubank%'
+        AND Ganho_G1 > 0
+		and ativo not in (0,6,8)
+    GROUP BY 
+        main.Atributo, site,cidade
+)
+SELECT distinct Indicadores, ganho, count (atributo) as QTD, site, cidade
+
+
+FROM 
+    Combinacoes
+
+	group by indicadores, ganho,site, cidade
+	order by qtd desc-- site
