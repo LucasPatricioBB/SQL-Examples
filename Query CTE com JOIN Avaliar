@@ -1,0 +1,78 @@
+WITH CTE AS (
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY [id_Indicador], [atributo], [periodo]
+            ORDER BY SomaTotal DESC, [periodo] DESC
+        ) AS rn
+    FROM (
+        SELECT 
+            *,
+            (   CASE WHEN [meta_da_classificacao] IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN [classificacao_Meta] IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN [criterio_final_meta_e_peso] IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN [area_do_responsável] IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN [tipo_faturamento] IS NOT NULL THEN 1 ELSE 0 END
+            ) AS SomaTotal
+        FROM (
+            SELECT 
+                [id_Indicador],
+                [indicador],
+                [valor_Meta],
+                mm.[atributo],
+                atr.[operacao],
+                [periodo],
+                [chamado],
+                [classificacao_Meta],
+                [meta_da_classificacao],
+                [diferença],
+                [criterio_final_meta_e_peso],
+                [responsavel],
+                [area_do_responsável],
+                [Tipo_Faturamento],
+                [tipo_indicador],
+                [Coordenador_chamado]
+            FROM 
+                [VerticalRobbyson].[rby].[meta_matriz] AS mm WITH (NOLOCK)
+                JOIN [VerticalRobbyson].[dbo].[dim_atributo] AS atr WITH (NOLOCK) 
+                ON atr.atributo = mm.atributo   
+            WHERE 
+                [periodo] BETWEEN DATEADD(DAY, 1, EOMONTH(DATEADD(MONTH, -4, GETDATE()))) AND EOMONTH(GETDATE())
+        ) AS Subquery1
+    ) AS Subquery2
+)
+
+-- Final Query que utiliza a CTE
+SELECT
+    ff.[data]
+      ,ff.[atributo]
+      ,ff.[id]
+      ,ff.[nome_indicador]
+      ,ff.[resultado]
+      ,ff.[meta]
+      ,ff.[gama]
+      ,ff.[atingimento]
+      ,ff.[atingimento_projetado]
+      ,ff.[grupo]
+      ,ff.[grupo_projetado]
+      ,ff.[MetaDesv]
+      ,ff.[MetaG1G2G3]
+      ,ff.[MetaG1G2]
+      ,ff.[Tipo]
+      ,ff.[factibilidade]
+      ,ff.[MetaSugerida]
+      ,ff.[Meta_Escolhida]
+      ,ff.[MetaDesv_status]
+      ,ct.[classificacao_Meta]
+FROM 
+    [VerticalRobbyson].[dbo].[factibilidadeEfaixas] AS ff WITH (NOLOCK) 
+    JOIN CTE AS ct 
+    ON ff.[atributo] = ct.[atributo] 
+    AND ff.[id] = ct.[id_Indicador] 
+    AND ff.[data] = ct.[periodo]
+WHERE 
+    ct.rn = 1
+ORDER BY 
+    ff.[data], 
+    ff.[atributo], 
+    ff.[id]
